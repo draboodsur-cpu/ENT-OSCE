@@ -1,0 +1,17 @@
+{
+  "name": "ENT OSCE",
+  "short_name": "ENT OSCE",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF2F2",
+  "theme_color": "#2E6670",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "ent-osce-split-v1";
+const CACHE_NAME = "ent-osce-split-v2";
 const APP_FILES = ["./", "./index.html", "./board-books.html", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));

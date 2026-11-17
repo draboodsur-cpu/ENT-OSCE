@@ -85,6 +85,20 @@ details[open] summary::after{content:"Hide"}
 .lightbox .inner{background:#fff;border-radius:10px;max-width:100%;max-height:100%;overflow:auto}
 .lightbox .inner svg,.lightbox .inner img{display:block;width:min(96vw,900px);height:auto}
 @media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+.tabs{overflow-x:auto;scrollbar-width:none}.tab{flex:1 0 auto;white-space:nowrap}
+.tab .mkn{font-size:.75em;opacity:.8}
+.star{border:0;background:none;color:var(--amber);font-size:1.3rem;line-height:1;padding:2px 6px;cursor:pointer;flex:none;font-family:system-ui,sans-serif}
+.star[aria-pressed="false"]{color:var(--muted);opacity:.65}
+summary .star{margin-left:auto;font-size:1.15rem;align-self:flex-start}
+summary:has(.star)::after{margin-left:4px}
+.sthead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.sthead .meta{flex:1}
+.mkgroup{margin:22px 0 8px;font-family:Georgia,"Noto Serif",serif;font-size:1.1rem}
+.mkrow{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 12px 14px;margin-bottom:8px;border-left:4px solid var(--amber)}
+.mkrow .t{flex:1;min-width:0}.mkrow .t b{display:block;font-weight:600}.mkrow .t small{color:var(--muted)}
+.mkq{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:2px 14px 6px;margin-bottom:8px}
+.mkq .from{font-size:.8rem;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.linkbtn{border:0;background:none;color:var(--teal);font:inherit;font-weight:600;font-size:.85rem;cursor:pointer;padding:4px 0}
 </style>
 </head>
 <body>
@@ -98,6 +112,7 @@ details[open] summary::after{content:"Hide"}
     <button class="tab" role="tab" data-part="exam" aria-selected="false">Clinical</button>
     <button class="tab" role="tab" data-part="viva" aria-selected="false">Viva</button>
     <button class="tab" role="tab" data-part="comp" aria-selected="false">Board books</button>
+    <button class="tab" role="tab" data-part="marked" aria-selected="false">★ Marked <span class="mkn" id="mkN"></span></button>
   </div>
 
   <main id="view"></main>
@@ -378,7 +393,7 @@ const MPCOMM = [{"source": "MasterPass ENT OSCEs", "topic": "Communication", "ti
 EXAM.push(...VTCOMM); EXAM.push(...MPCOMM); VIVAS.push(...VTQ);
 
 let BOARD_BOOKS = null;
-const S={part:"img", img:{topic:"All",src:"All",i:0}, exam:{topic:"All",src:"All",i:0}, viva:{topic:"All",src:"All",i:0,mode:"cases"}, comp:{topic:"All",src:"Ear – OSCE stations",i:0}};
+const S={part:"img", img:{topic:"All",src:"All",i:0}, exam:{topic:"All",src:"All",i:0}, viva:{topic:"All",src:"All",i:0,mode:"cases"}, comp:{topic:"All",src:"Ear – OSCE stations",i:0}, marked:{f:"all"}};
 const listFor=p=>p==="img"?IMG:p==="exam"?EXAM:p==="comp"?(BOARD_BOOKS?BOARD_BOOKS.COMP:[]):(S.viva.mode==="cases"?VIVACASES:VIVAS);
 const APP_STORE_KEY="ent-osce-local-v1";
 const OPEN_STORE_KEY="ent-osce-open-v1";
@@ -391,6 +406,7 @@ function saveAppState(){
 }
 function stateKey(){
   const p=S.part, st=S[p]||{};
+  if(p==="marked") return "marked|"+(st.f||"all");
   if(p==="viva" && st.mode==="quick") return "viva|quick|"+st.src+"|"+st.topic;
   const items=listFor(p), item=items[st.i];
   return [p, st.mode||"", item?.source||st.src||"", item?.title||st.topic||""].join("|");
@@ -410,10 +426,10 @@ function restoreOpenState(){
 }
 const savedAppState=readStore(APP_STORE_KEY,null);
 if(savedAppState && typeof savedAppState==="object"){
-  ["part","img","exam","viva","comp"].forEach(k=>{
+  ["part","img","exam","viva","comp","marked"].forEach(k=>{
     if(savedAppState[k] && typeof savedAppState[k]==="object") Object.assign(S[k]||{},savedAppState[k]);
   });
-  if(!["img","exam","viva","comp"].includes(S.part)) S.part="img";
+  if(!["img","exam","viva","comp","marked"].includes(S.part)) S.part="img";
 }
 view.addEventListener("toggle",e=>{
   if(e.target && e.target.tagName==="DETAILS") saveOpenState();
@@ -444,15 +460,16 @@ function renderStations(p){
   const items=filt(p), st=S[p];
   if(st.i>=items.length) st.i=0;
   let h=(p==="viva"?modeSwitch():"")+(p==="comp"?'<div class="task" style="margin-bottom:12px">Board books – separate section: Comprehensive Board Examinations (Ear, Nose, Throat, Head &amp; Neck – OSCE and Slides) and ENT TZAR (62 OSCE stations, instruments, audiograms). Choose the book/ chapter from the list.</div>':"")+controls(p);
-  h+='<select id="pick" aria-label="Station">'+items.map((s,i)=>'<option value="'+i+'"'+(i===st.i?' selected':'')+'>'+(i+1)+'. '+((s.imgs&&s.imgs.length)||s.svg?'📷 ':'')+s.title+'</option>').join("")+'</select></div>';
+  h+='<select id="pick" aria-label="Station">'+items.map((s,i)=>'<option value="'+i+'"'+(i===st.i?' selected':'')+'>'+(MARKS[sKey(p,s)]?'★ ':'')+(i+1)+'. '+((s.imgs&&s.imgs.length)||s.svg?'📷 ':'')+s.title+'</option>').join("")+'</select></div>';
   const s=items[st.i];
   if(!s){view.innerHTML=h+'<p class="empty">Board books could not be loaded. Check that board-books.html is uploaded beside index.html, then refresh.</p>';bindControls(p,()=>renderStations(p));return}
-  h+='<article class="station"><p class="meta">'+s.topic+' · '+s.source+'</p><h2>'+s.title+'</h2>';
+  const SK=sKey(p,s);
+  h+='<article class="station"><div class="sthead"><p class="meta">'+s.topic+' · '+s.source+'</p>'+starBtn(SK,{type:"station",part:p,source:s.source,title:s.title,topic:s.topic},"Mark this station")+'</div><h2>'+s.title+'</h2>';
   if(s.task) h+='<div class="task">'+s.task+'</div>';
   if(s.svg) h+='<figure class="figure" data-zoom>'+s.svg+(s.caption?'<figcaption class="caption">'+s.caption+'</figcaption>':'')+'</figure>';
   (s.imgs||[]).forEach(im=>{h+='<figure class="figure" data-zoom><img loading="lazy" src="'+(IMGSRC[im[0]]||(BOARD_BOOKS&&BOARD_BOOKS.IMGSRC[im[0]])||"")+'" alt="'+im[1]+'"><figcaption class="caption">'+im[1]+'</figcaption></figure>'});
   const rows=s.qs||s.steps;
-  rows.forEach((r,i)=>{h+='<details><summary><span class="qn">'+(i+1)+'</span><span>'+r[0]+'</span></summary><div class="ans">'+r[1]+'</div></details>'});
+  rows.forEach((r,i)=>{h+='<details><summary><span class="qn">'+(i+1)+'</span><span>'+r[0]+'</span>'+starBtn(SK+"|q"+i,{type:"q",part:p,source:s.source,title:s.title,topic:s.topic,qi:i,q:r[0]},"Mark this question")+'</summary><div class="ans">'+r[1]+'</div></details>'});
   h+='<div class="nav"><button class="btn" id="prev">Previous</button><button class="btn" id="all">Show all</button><span class="count">'+(st.i+1)+' / '+items.length+'</span><button class="btn primary" id="next">Next</button></div></article>';
   view.innerHTML=h;
   restoreOpenState();
@@ -466,14 +483,79 @@ function renderStations(p){
 function renderViva(){
   const items=filt("viva");
   let h=modeSwitch()+controls("viva")+'</div>';
-  h+='<div class="vivalist">'+(items.length?items.map((v,i)=>'<details><summary><span class="qn">'+(i+1)+'</span><span>'+v.q+(S.viva.topic==="All"?'<span class="vtag">'+v.topic+'</span>':'')+'</span></summary><div class="ans">'+v.a+'</div></details>').join(""):'<p class="empty">No questions here yet.</p>')+'</div>';
+  h+='<div class="vivalist">'+(items.length?items.map((v,i)=>'<details><summary><span class="qn">'+(i+1)+'</span><span>'+v.q+(S.viva.topic==="All"?'<span class="vtag">'+v.topic+'</span>':'')+'</span>'+starBtn(vqKey(v),{type:"vq",source:v.source,topic:v.topic,q:v.q},"Mark this question")+'</summary><div class="ans">'+v.a+'</div></details>').join(""):'<p class="empty">No questions here yet.</p>')+'</div>';
   h+='<div class="nav"><span class="count">'+items.length+' questions</span><button class="btn" id="all">Show all</button></div>';
   view.innerHTML=h; restoreOpenState(); bindControls("viva",renderViva); allToggle();
 }
+
+/* ---------- MARKED ITEMS ---------- */
+const MARK_KEY="ent-osce-marks-v1";
+let MARKS=readStore(MARK_KEY,{});
+if(!MARKS||typeof MARKS!=="object") MARKS={};
+function saveMarks(){try{localStorage.setItem(MARK_KEY,JSON.stringify(MARKS))}catch(e){}}
+function sKey(p,s){return ["st",p,s.source,s.title].join("|")}
+function vqKey(v){return ["vq",v.source,v.q].join("|")}
+function starBtn(key,meta,label){const on=!!MARKS[key];return '<button type="button" class="star" data-mk="'+encodeURIComponent(key)+'" data-meta="'+encodeURIComponent(JSON.stringify(meta))+'" aria-pressed="'+on+'" aria-label="'+label+'" title="'+label+'">'+(on?"★":"☆")+'</button>'}
+function updMarkCount(){const n=Object.keys(MARKS).length,el=document.getElementById("mkN");if(el)el.textContent=n?n:""}
+view.addEventListener("click",e=>{
+  const b=e.target.closest(".star");if(!b)return;
+  e.preventDefault();e.stopPropagation();
+  const k=decodeURIComponent(b.dataset.mk);
+  if(MARKS[k]) delete MARKS[k];
+  else {let m={};try{m=JSON.parse(decodeURIComponent(b.dataset.meta))}catch(err){} m.ts=Date.now(); MARKS[k]=m;}
+  saveMarks();updMarkCount();
+  if(S.part==="marked"){renderMarked();return}
+  const on=!!MARKS[k];b.setAttribute("aria-pressed",on);b.textContent=on?"★":"☆";
+  if(k.startsWith("st|")&&!k.includes("|q",k.lastIndexOf("|"))){const pk=document.getElementById("pick");if(pk&&pk.selectedOptions[0]){const o=pk.selectedOptions[0];o.textContent=on?("★ "+o.textContent.replace(/^★ /,"")):o.textContent.replace(/^★ /,"")}}
+},true);
+const PARTNAME={img:"Image OSCE",exam:"Clinical",viva:"Viva cases",comp:"Board books",vq:"Viva quick questions"};
+function stationList(p){return p==="img"?IMG:p==="exam"?EXAM:p==="comp"?(BOARD_BOOKS?BOARD_BOOKS.COMP:[]):VIVACASES}
+function findStation(m){return stationList(m.part).find(x=>x.source===m.source&&x.title===m.title)}
+function openMarked(m){
+  const p=m.part;if(p==="viva")S.viva.mode="cases";
+  S.part=p;const st=S[p];st.topic="All";st.src=m.source;
+  const items=filt(p);let i=items.findIndex(x=>x.title===m.title);if(i<0){st.src="All";i=filt(p).findIndex(x=>x.title===m.title)}
+  st.i=Math.max(0,i);render();window.scrollTo(0,0);
+  if(m.qi!=null)setTimeout(()=>{const d=view.querySelectorAll("article.station details")[m.qi];if(d){d.open=true;d.scrollIntoView({block:"center"})}},60);
+}
+function renderMarked(){
+  const st=S.marked, f=st.f||"all";
+  const all=Object.entries(MARKS).map(([k,m])=>Object.assign({key:k},m)).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const nS=all.filter(m=>m.type==="station").length, nQ=all.length-nS;
+  let h='<div class="chips" role="group" aria-label="Filter"><button class="chip mkf" data-f="all" aria-pressed="'+(f==="all")+'">All <span class="n">'+all.length+'</span></button><button class="chip mkf" data-f="station" aria-pressed="'+(f==="station")+'">Stations <span class="n">'+nS+'</span></button><button class="chip mkf" data-f="q" aria-pressed="'+(f==="q")+'">Questions <span class="n">'+nQ+'</span></button></div>';
+  const list=all.filter(m=>f==="all"||(f==="station"?m.type==="station":m.type!=="station"));
+  if(!list.length){view.innerHTML=h+'<p class="empty">'+(all.length?'Nothing in this filter.':'Nothing marked yet.<br>Tap ☆ next to any station or question to save it here.')+'</p>';bindMarked();return}
+  const order=["img","exam","viva","comp","vq"];
+  const grp=m=>m.type==="vq"?"vq":m.part;
+  order.forEach(g=>{
+    const items=list.filter(m=>grp(m)===g);if(!items.length)return;
+    h+='<h3 class="mkgroup">'+PARTNAME[g]+' <span class="n" style="font-size:.8rem;color:var(--muted)">'+items.length+'</span></h3>';
+    items.forEach((m,idx)=>{
+      const mid=encodeURIComponent(m.key);
+      if(m.type==="station"){
+        const ok=findStation(m);
+        h+='<div class="mkrow"><div class="t"><b>'+m.title+'</b><small>'+(m.topic?m.topic+' · ':'')+m.source+(ok?'':' · '+(m.part==="comp"&&!BOARD_BOOKS?'loading…':'not found'))+'</small></div>'+(ok?'<button class="btn primary mkopen" data-open="'+mid+'">Open</button>':'')+starBtn(m.key,m,"Remove mark")+'</div>';
+      }else if(m.type==="q"){
+        const s=findStation(m);let row=s&&(s.qs||s.steps)?(s.qs||s.steps)[m.qi]:null;
+        if(s&&(!row||row[0]!==m.q)){const rs=s.qs||s.steps||[];const j=rs.findIndex(r=>r[0]===m.q);if(j>=0){row=rs[j];m.qi=j}}
+        h+='<div class="mkq"><details><summary><span>'+(row?row[0]:m.q)+'</span>'+starBtn(m.key,m,"Remove mark")+'</summary><div class="ans">'+(row?row[1]:'<em>'+(m.part==="comp"&&!BOARD_BOOKS?'Loading…':'Answer not found')+'</em>')+'</div></details><p class="from"><span>'+m.title+' · '+m.source+'</span>'+(s?'<button class="linkbtn mkopen" data-open="'+mid+'">Open station →</button>':'')+'</p></div>';
+      }else{
+        const v=VIVAS.find(x=>x.q===m.q&&x.source===m.source)||VIVAS.find(x=>x.q===m.q);
+        h+='<div class="mkq"><details><summary><span>'+m.q+'</span>'+starBtn(m.key,m,"Remove mark")+'</summary><div class="ans">'+(v?v.a:'<em>Answer not found</em>')+'</div></details><p class="from"><span>'+(m.topic?m.topic+' · ':'')+m.source+'</span></p></div>';
+      }
+    });
+  });
+  h+='<div class="nav"><span class="count">'+list.length+' marked</span><button class="btn" id="all">Show all answers</button></div>';
+  view.innerHTML=h;bindMarked();allToggle();
+}
+function bindMarked(){
+  view.querySelectorAll(".mkf").forEach(b=>b.onclick=()=>{S.marked.f=b.dataset.f;saveAppState();renderMarked()});
+  view.querySelectorAll(".mkopen").forEach(b=>b.onclick=()=>{const k=decodeURIComponent(b.dataset.open);const m=MARKS[k];if(m)openMarked(m)});
+}
 function render(){
-  saveAppState();
+  saveAppState();updMarkCount();
   document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.part===S.part));
-  if(S.part==="viva") (S.viva.mode==="cases"?renderStations("viva"):renderViva()); else renderStations(S.part);
+  if(S.part==="marked") renderMarked(); else if(S.part==="viva") (S.viva.mode==="cases"?renderStations("viva"):renderViva()); else renderStations(S.part);
 }
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{S.part=t.dataset.part;render();window.scrollTo(0,0)});
 document.getElementById("lb").onclick=()=>document.getElementById("lb").classList.remove("on");
